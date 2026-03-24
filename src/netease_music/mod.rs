@@ -1,12 +1,12 @@
-use axum::{Json, Router, body::Body, extract::Query, response::{IntoResponse, Redirect, Response}, routing::{get, post}};
+use axum::{Json, Router, body::Body, extract::Query, response::{IntoResponse, Redirect, Response}, routing::{any, get, post}};
 use reqwest::{StatusCode, header};
-use serde_json::json;
+use serde_json::{Value, json};
 use thiserror::Error;
 
 use crate::netease_music::{protocal::*, web::CLIENT};
 
 pub mod protocal;
-pub mod cryto;
+pub mod crytpo;
 pub mod web;
 
 #[derive(Error, Debug)]
@@ -14,7 +14,7 @@ pub enum NetEaseMusicError {
     #[error("Network request failed: {0}")]
     Network(#[from] reqwest::Error),
     #[error("Operation failed: {0}")]
-    Crypto(#[from] anyhow::Error),
+    Operation(#[from] anyhow::Error),
     #[error("JSON serialization/deserialization failed: {0}")]
     Json(#[from] serde_json::Error),
     #[error("Server error: {0}")]
@@ -28,6 +28,7 @@ impl IntoResponse for NetEaseMusicError {
 }
 pub fn router() -> Router {
     Router::new()
+        .route("/", any(info))
         .route("/song", get(song_get))
         .route("/song", post(song_post))
         .route("/audio", get(audio_get))
@@ -56,7 +57,17 @@ async fn song(id_list: Vec<u64>) -> Result<Json<Vec<Song>>, NetEaseMusicError> {
     if id_list.is_empty() {
         return Ok(Json(vec![]));
     }
-    let form = cryto::make_weapi_form(id_list)?;
+    let data = serde_json::to_string(&json!({
+        "c": serde_json::to_string(&Value::Array(
+            id_list.iter().map(|id| json!({"id": id}))
+            .collect::<Vec<Value>>()
+        ))?,
+        "ids": serde_json::to_string(&Value::Array(
+            id_list.iter().map(|id| json!(id))
+            .collect::<Vec<Value>>()
+        ))?,
+    }))?;
+    let form = crytpo::make_weapi_form(data)?;
     
     let songs = CLIENT.post("https://music.163.com/weapi/v3/song/detail")
         .form(&form).send().await?.json::<Songs>().await?;
@@ -122,9 +133,9 @@ async fn audio(id_list: Vec<u64>, quality: Quality) -> Result<Vec<Audio>, NetEas
         "ids": id_list,
         "level": quality.to_string(),
         "encodeType": "flac", // fallback to mp3 at netease side
-        "header": cryto::make_eapi_header()?
+        "header": crytpo::make_eapi_header()?
     }))?;
-    let form = cryto::make_eapi_form(
+    let form = crytpo::make_eapi_form(
         "/api/song/enhance/player/url/v1".to_string(),
         payload
     )?;
@@ -187,4 +198,22 @@ async fn album(id: u64) -> Result<Json<Album>, NetEaseMusicError> {
     let album = CLIENT.get(format!("https://music.163.com/api/v1/album/{id}"))
         .send().await?.json::<AlbumWrapper>().await?;
     Ok(Json(album.album))
+}
+
+async fn info() -> Result<Json<Value>, NetEaseMusicError> {
+    Ok(Json(json!({
+        "is_vip": vip().await?
+    })))
+}
+
+async fn vip() -> Result<bool, NetEaseMusicError> {
+    let form = crytpo::make_weapi_form("{}".to_string())?;
+    let response = CLIENT.post("https://music.163.com/weapi/nuser/account/get")
+        .form(&form).send().await?.json::<Value>().await?;
+    let vip_type = response
+        .get("account")
+        .and_then(|value| value.get("vipType"))
+        .and_then(|value| value.as_i64())
+        .ok_or(anyhow::anyhow!("Failed to get VIP type from response"))?;
+    Ok(vip_type > 0)
 }

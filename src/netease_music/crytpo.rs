@@ -18,7 +18,6 @@ aTWz7OBGLbCiK45wIDAQAB
 const AES_KEY: &[u8] = b"e82ckenh8dichen8";
 // const ID_MAGIC: &str = "3go8&$8*3*3h0k(2)2";
 
-
 pub struct ApiCrypto;
 
 impl ApiCrypto {
@@ -74,18 +73,7 @@ impl ApiCrypto {
     }
 }
 
-pub fn make_weapi_form(ids: Vec<u64>) -> anyhow::Result<Value> { 
-    let data = serde_json::to_string(&json!({
-        "c": serde_json::to_string(&Value::Array(
-            ids.iter().map(|id| json!({"id": id}))
-            .collect::<Vec<Value>>()
-        ))?,
-        "ids": serde_json::to_string(&Value::Array(
-            ids.iter().map(|id| json!(id))
-            .collect::<Vec<Value>>()
-        ))?,
-    }))?;
-
+pub fn make_weapi_form(data: String) -> anyhow::Result<Value> { 
     let (key, key_rev) = ApiCrypto::new_len16_rand();
 
     let first_encrypted = ApiCrypto::aes_cbc_encrypt(data.as_bytes(), PRESET_KEY, IV);
