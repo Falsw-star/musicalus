@@ -6,7 +6,7 @@ use thiserror::Error;
 use crate::netease_music::{protocal::*, web::CLIENT};
 
 pub mod protocal;
-pub mod crytpo;
+pub mod crypto;
 pub mod web;
 
 #[derive(Error, Debug)]
@@ -67,7 +67,7 @@ async fn song(id_list: Vec<u64>) -> Result<Json<Vec<Song>>, NetEaseMusicError> {
             .collect::<Vec<Value>>()
         ))?,
     }))?;
-    let form = crytpo::make_weapi_form(data)?;
+    let form = crypto::make_weapi_form(data)?;
     
     let songs = CLIENT.post("https://music.163.com/weapi/v3/song/detail")
         .form(&form).send().await?.json::<Songs>().await?;
@@ -133,9 +133,9 @@ async fn audio(id_list: Vec<u64>, quality: Quality) -> Result<Vec<Audio>, NetEas
         "ids": id_list,
         "level": quality.to_string(),
         "encodeType": "flac", // fallback to mp3 at netease side
-        "header": crytpo::make_eapi_header()?
+        "header": crypto::make_eapi_header()?
     }))?;
-    let form = crytpo::make_eapi_form(
+    let form = crypto::make_eapi_form(
         "/api/song/enhance/player/url/v1".to_string(),
         payload
     )?;
@@ -207,7 +207,7 @@ async fn info() -> Result<Json<Value>, NetEaseMusicError> {
 }
 
 async fn vip() -> Result<bool, NetEaseMusicError> {
-    let form = crytpo::make_weapi_form("{}".to_string())?;
+    let form = crypto::make_weapi_form("{}".to_string())?;
     let response = CLIENT.post("https://music.163.com/weapi/nuser/account/get")
         .form(&form).send().await?.json::<Value>().await?;
     let vip_type = response
