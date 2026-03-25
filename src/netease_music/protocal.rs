@@ -163,6 +163,11 @@ pub struct PlaylistRequest {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct PlaylistResponse { 
+    pub playlist: Playlist
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Playlist {
     pub id: u64,
     pub name: String,
@@ -198,7 +203,7 @@ pub struct AlbumRequest {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AlbumWrapper {
+pub struct AlbumResponse {
     pub album: Album
 }
 

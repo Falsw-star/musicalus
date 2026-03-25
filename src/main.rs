@@ -2,6 +2,7 @@ use axum::{Router, routing};
 use li_logger::get_logger;
 use musicalus::CONFIG;
 use tokio::net::TcpListener;
+use tower_http::services::ServeDir;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -12,6 +13,7 @@ async fn main() -> anyhow::Result<()> {
 
     let router = Router::new()
         .nest("/netease", musicalus::netease_music::router())
+        .nest_service("/static", ServeDir::new("public"))
         .route("/", routing::any(|| async { "Hello, World!" }))
         .layer(middle_logger);
 

@@ -1,4 +1,4 @@
-use axum::{Json, Router, body::Body, extract::Query, response::{IntoResponse, Redirect, Response}, routing::{any, get, post}};
+use axum::{Json, Router, body::Body, extract::Query, response::{Html, IntoResponse, Redirect, Response}, routing::{any, get, post}};
 use reqwest::{StatusCode, header};
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -39,6 +39,7 @@ pub fn router() -> Router {
         .route("/audio/proxy", post(audio_proxy_post))
         .route("/search", get(search_get))  
         .route("/search", post(search_post))
+        .route("/playlist/download", get(plsylist_download_get))
         .route("/playlist", get(playlist_get))
         .route("/playlist", post(playlist_post))
         .route("/album", get(album_get))
@@ -167,6 +168,24 @@ async fn search(keyword: String, limit: u64) -> Result<Json<Vec<Song>>, NetEaseM
     Ok(Json(response.result.songs))
 }
 
+async fn plsylist_download_get() -> Result<Response, NetEaseMusicError> {
+    let page = r#"
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Down</title>
+        </head>
+        <body>
+            <div id="text"></div>
+        </body>
+        <script src="/static/netease/playlist_download.js"></script>
+        </html>
+    "#;
+    Ok(Html(page).into_response())
+}
+
 async fn playlist_get(Query(req): Query<PlaylistRequest>) -> Result<Json<Playlist>, NetEaseMusicError> {
     playlist(req.id).await
 }
@@ -182,8 +201,8 @@ async fn playlist(id: u64) -> Result<Json<Playlist>, NetEaseMusicError> {
         "s": 8
     });
     let response = CLIENT.post("https://music.163.com/api/v6/playlist/detail")
-        .form(&form).send().await?.json::<Playlist>().await?;
-    Ok(Json(response))
+        .form(&form).send().await?.json::<PlaylistResponse>().await?;
+    Ok(Json(response.playlist))
 }
 
 async fn album_get(Query(req): Query<AlbumRequest>) -> Result<Json<Album>, NetEaseMusicError> {
@@ -196,7 +215,7 @@ async fn album_post(Json(req): Json<AlbumRequest>) -> Result<Json<Album>, NetEas
 
 async fn album(id: u64) -> Result<Json<Album>, NetEaseMusicError> {
     let album = CLIENT.get(format!("https://music.163.com/api/v1/album/{id}"))
-        .send().await?.json::<AlbumWrapper>().await?;
+        .send().await?.json::<AlbumResponse>().await?;
     Ok(Json(album.album))
 }
 
