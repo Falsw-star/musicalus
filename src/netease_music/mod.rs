@@ -1,4 +1,5 @@
 use axum::{Json, Router, body::Body, extract::Query, response::{Html, IntoResponse, Redirect, Response}, routing::{any, get, post}};
+use li_logger::get_logger;
 use reqwest::{StatusCode, header};
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -23,6 +24,7 @@ pub enum NetEaseMusicError {
 
 impl IntoResponse for NetEaseMusicError {
     fn into_response(self) -> Response {
+        get_logger().error(&self);
         (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
     }
 }

@@ -20,14 +20,20 @@ pub fn make_client() -> anyhow::Result<reqwest::Client> {
         "https://music.163.com".parse().unwrap()
     );
 
+    let urls = [
+        reqwest::Url::parse("https://music.163.com").unwrap(),
+        reqwest::Url::parse("https://interface3.music.163.com").unwrap(),
+    ];
+
     let cookie_store = Arc::new(reqwest::cookie::Jar::default());
-    let cookie_url = reqwest::Url::parse("https://music.163.com").unwrap();
-    cookie_store.add_cookie_str(
-        &format!("MUSIC_U={}", &CONFIG.cookie),
-        &cookie_url
-    );
-    cookie_store.add_cookie_str("__remember_me=true", &cookie_url);
-    cookie_store.add_cookie_str("os=pc", &cookie_url);
+    for url in &urls {
+        cookie_store.add_cookie_str(
+            &format!("MUSIC_U={}", &CONFIG.cookie),
+            &url
+        );
+        cookie_store.add_cookie_str("__remember_me=true", &url);
+        cookie_store.add_cookie_str("os=pc", &url);
+    };
 
     Ok(reqwest::Client::builder()
         .default_headers(headers)
